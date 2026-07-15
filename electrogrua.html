@@ -119,17 +119,19 @@ button{font-family:var(--ff-ui);cursor:pointer;}
 .viewport-container {
   position: relative;
   width: 100%;
-  height: min(72vh,720px); /* Aumentado tamaño de visualización */
+  height: min(72vh,720px);
   border: 1px solid var(--line);
   border-radius: 6px;
   overflow: hidden;
   background: var(--panel);
 }
+
+/* BOTONES FLOTANTES DE PANTALLA COMPLETA */
 .fullscreen-btn {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 10;
+  z-index: 101;
   background: rgba(4, 8, 15, 0.85);
   border: 1px solid var(--line);
   color: var(--cyan);
@@ -152,7 +154,96 @@ button{font-family:var(--ff-ui);cursor:pointer;}
   fill: currentColor;
 }
 
-/* controls - Rediseñado a 4 columnas */
+/* Botón Mute Flotante */
+.mute-btn {
+  position: absolute;
+  top: 12px;
+  right: 52px;
+  z-index: 101;
+  background: rgba(4, 8, 15, 0.85);
+  border: 1px solid var(--line);
+  color: var(--cyan);
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.mute-btn:hover {
+  background: var(--cyan);
+  color: var(--void);
+  box-shadow: 0 0 10px var(--cyan);
+}
+.mute-btn.muted {
+  border-color: var(--red);
+  color: var(--red);
+  box-shadow: 0 0 8px rgba(255,59,78,0.4);
+}
+.mute-btn svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Panel de Controles Flotantes para Pantalla Completa */
+.fs-controls-panel {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 101;
+  background: rgba(4, 8, 15, 0.9);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  padding: 10px 14px;
+  display: flex;
+  gap: 8px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 0 25px rgba(0,229,255,0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+/* Al estar en Fullscreen, mostramos los controles con esta clase */
+.viewport-container:fullscreen .fs-controls-panel,
+.viewport-container:-webkit-full-screen .fs-controls-panel {
+  opacity: 1;
+  pointer-events: auto;
+}
+.fs-ctrl-btn {
+  background: rgba(9,18,32,0.8);
+  border: 1px solid var(--line);
+  color: var(--white);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-family: var(--ff-mono);
+  font-size: 0.65rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 66px;
+  transition: all 0.2s;
+}
+.fs-ctrl-btn:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  background: rgba(0,229,255,0.1);
+}
+.fs-ctrl-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.fs-ctrl-btn.active {
+  border-color: var(--green);
+  color: var(--green);
+  box-shadow: 0 0 10px rgba(0,255,162,.3);
+}
+
+/* controls - Normal panel */
 .controls-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
 @media (max-width:700px){.controls-grid{grid-template-columns:repeat(2,1fr);}}
 .ctrl-btn{background:var(--panel);border:1px solid var(--line);color:var(--white);border-radius:4px;padding:12px 4px;font-size:.68rem;letter-spacing:.03em;
@@ -223,9 +314,42 @@ footer{text-align:center;padding:24px;font-family:var(--ff-mono);font-size:.62re
 
     <div class="rail viewport-wrap">
       <div class="panel viewport-container" id="iframe-viewport-panel">
+        
+        <button class="mute-btn" id="btn-mute" title="Silenciar Sonido">
+          <svg id="svg-mute" viewBox="0 0 24 24">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+        </button>
+
         <button class="fullscreen-btn" id="btn-fullscreen" title="Pantalla Completa">
           <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
         </button>
+
+        <div class="fs-controls-panel" id="fs-controls">
+          <button class="fs-ctrl-btn" data-act="left">
+            <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            GIRO IZQ
+          </button>
+          <button class="fs-ctrl-btn" data-act="right">
+            <svg viewBox="0 0 24 24"><path d="M4 11h12.17l-5.59-5.59L12 4l8 8-8 8-1.41-1.41L16.17 13H4v-2z"/></svg>
+            GIRO DER
+          </button>
+          <button class="fs-ctrl-btn" data-act="up">
+            <svg viewBox="0 0 24 24"><path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"/></svg>
+            ELEV +
+          </button>
+          <button class="fs-ctrl-btn" data-act="down">
+            <svg viewBox="0 0 24 24"><path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"/></svg>
+            ELEV -
+          </button>
+          <button class="fs-ctrl-btn" id="fs-magnet-btn">
+            IMÁN
+          </button>
+          <button class="fs-ctrl-btn" id="fs-exploded-btn">
+            VISTA EXP
+          </button>
+        </div>
+
         <iframe 
           id="simulation-iframe"
           src="index.html" 
