@@ -1,0 +1,47 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #010204;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #ffffff;
+    user-select: none;
+}
+
+#canvas-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* Tarjeta flotante interactiva fija arriba a la derecha */
+#info-card {
+    position: absolute;
+    display: none;
+    top: 20px;
+    right: 20px;
+    background: rgba(4, 9, 20, 0.96);
+    border: 1.5px solid #9d4edd;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 0 25px rgba(157, 78, 221, 0.4);
+    z-index: 100;
+    width: 320px;
+    font-family: monospace;
+    backdrop-filter: blur(8px);
+    transition: opacity 0.3s ease;
+    opacity: 0;
+    pointer-events: none; /* Evita que interrumpa la rotación o clics en el canvas */
+}
+
+#info-card h3 {
+    margin: 0 0 8px 0;
+    font-size: 1.15rem;
+    letter-spacing: 0.05em;
+    font-weight: 700;
+}
+
+#info-card p {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #8fa3b3;
+}
