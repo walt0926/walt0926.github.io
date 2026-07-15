@@ -3,32 +3,155 @@
    ========================================================================= */
 
 /* -------------------------------------------------------------------------
-   0. SOUND ENGINE (synthesized via WebAudio — no external audio files)
+   SONIDOS
 ------------------------------------------------------------------------- */
 const Sound = (() => {
-  let ctx = null;
-  function ensure(){ if(!ctx){ ctx = new (window.AudioContext||window.webkitAudioContext)(); } return ctx; }
-  function tone({freq=440, dur=.18, type='sine', gain=.05, sweep=null, delay=0}){
-    const ac = ensure();
-    const t0 = ac.currentTime + delay;
-    const osc = ac.createOscillator();
-    const g = ac.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    if(sweep) osc.frequency.exponentialRampToValueAtTime(sweep, t0+dur);
-    g.gain.setValueAtTime(gain, t0);
-    g.gain.exponentialRampToValueAtTime(.0001, t0+dur);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(t0); osc.stop(t0+dur+.02);
-  }
-  return {
-    click(){ tone({freq:1200,dur:.05,type:'square',gain:.03}); },
-    power_on(){ tone({freq:120,dur:.5,type:'sawtooth',gain:.05,sweep:640}); tone({freq:1800,dur:.35,type:'sine',gain:.02,delay:.08}); },
-    power_off(){ tone({freq:640,dur:.4,type:'sawtooth',gain:.05,sweep:80}); },
-    motor(){ tone({freq:220,dur:.25,type:'triangle',gain:.035,sweep:280}); },
-    magnet(){ tone({freq:340,dur:.3,type:'sine',gain:.04,sweep:900}); tone({freq:60,dur:.4,type:'sine',gain:.04,delay:.02}); },
-    alarm(){ tone({freq:880,dur:.15,type:'square',gain:.045}); tone({freq:660,dur:.15,type:'square',gain:.045,delay:.18}); }
-  };
+
+    let ctx = null;
+
+    let humOsc = null;
+    let humGain = null;
+    let humLFO = null;
+    let humLFOGain = null;
+
+    function ensure() {
+        if (!ctx) {
+            ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return ctx;
+    }
+
+    function tone({
+        freq = 440,
+        dur = .18,
+        type = 'sine',
+        gain = .05,
+        sweep = null,
+        delay = 0
+    }) {
+
+        const ac = ensure();
+        const t0 = ac.currentTime + delay;
+
+        const osc = ac.createOscillator();
+        const g = ac.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+
+        if (sweep)
+            osc.frequency.exponentialRampToValueAtTime(sweep, t0 + dur);
+
+        g.gain.setValueAtTime(gain, t0);
+        g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+
+        osc.connect(g);
+        g.connect(ac.destination);
+
+        osc.start(t0);
+        osc.stop(t0 + dur + .02);
+    }
+
+    //==================================================
+    // ZUMBIDO CONTINUO DEL TRANSFORMADOR
+    //==================================================
+
+    function startHum() {
+
+        const ac = ensure();
+
+        if (humOsc) return;
+
+        // Oscilador principal (onda diente de sierra para ese sonido "sucio" y eléctrico de 60Hz)
+        humOsc = ac.createOscillator();
+        humOsc.type = "sawtooth";
+        humOsc.frequency.value = 60;
+
+        // Volumen del zumbido
+        humGain = ac.createGain();
+        humGain.gain.value = 0.025;
+
+        // Modulador LFO para simular la vibración y oscilación real de la corriente alterna
+        humLFO = ac.createOscillator();
+        humLFO.type = "sine";
+        humLFO.frequency.value = 1.8;
+
+        humLFOGain = ac.createGain();
+        humLFOGain.gain.value = 1.2;
+
+        humLFO.connect(humLFOGain);
+        humLFOGain.connect(humOsc.frequency);
+
+        humOsc.connect(humGain);
+        humGain.connect(ac.destination);
+
+        humOsc.start();
+        humLFO.start();
+    }
+
+    function stopHum() {
+
+        if (!humOsc) return;
+
+        // Transición de apagado suave para evitar "clicks" de audio abruptos
+        humGain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            ctx.currentTime + 0.12
+        );
+
+        setTimeout(() => {
+            if (!humOsc) return; // Validación por seguridad cooperativa
+
+            humOsc.stop();
+            humLFO.stop();
+
+            humOsc.disconnect();
+            humGain.disconnect();
+            humLFO.disconnect();
+            humLFOGain.disconnect();
+
+            humOsc = null;
+            humGain = null;
+            humLFO = null;
+            humLFOGain = null;
+
+        }, 130);
+    }
+
+    return {
+
+        click() {
+            tone({ freq: 1200, dur: .05, type: 'square', gain: .03 });
+        },
+
+        power_on() {
+            tone({ freq: 120, dur: .5, type: 'sawtooth', gain: .05, sweep: 640 });
+            tone({ freq: 1800, dur: .35, type: 'sine', gain: .02, delay: .08 });
+        },
+
+        power_off() {
+            tone({ freq: 640, dur: .4, type: 'sawtooth', gain: .05, sweep: 80 });
+        },
+
+        motor() {
+            tone({ freq: 220, dur: .25, type: 'triangle', gain: .035, sweep: 280 });
+        },
+
+        magnet() {
+            tone({ freq: 340, dur: .3, type: 'sine', gain: .04, sweep: 900 });
+            tone({ freq: 60, dur: .4, type: 'sine', gain: .04, delay: .02 });
+        },
+
+        alarm() {
+            tone({ freq: 880, dur: .15, type: 'square', gain: .045 });
+            tone({ freq: 660, dur: .15, type: 'square', gain: .045, delay: .18 });
+        },
+
+        startHum,
+        stopHum
+
+    };
+
 })();
 
 /* -------------------------------------------------------------------------
@@ -191,6 +314,7 @@ const App = (() => {
       animateChartsOnPower();
     } else {
       Sound.power_off(); 
+      Sound.stopHum(); // <--- CORRECCIÓN: Apaga el zumbido del electroimán inmediatamente al quitar la corriente global
       log('Sistema apagado.');
       state.motors.giro=state.motors.brazo=state.motors.elevacion=false;
       if(state.magnet){ 
@@ -236,20 +360,36 @@ const App = (() => {
   }
 
   function toggleMagnet(){
-    if(!state.power){ 
-      Sound.alarm(); 
-      log('Active el sistema para usar el electroimán.'); 
-      return; 
-    }
-    state.magnet = !state.magnet;
-    document.getElementById('magnet-btn').classList.toggle('active', state.magnet);
-    setDot('dot-magnet', state.magnet);
-    Sound.magnet();
 
-    sendIframeCommand('setMagnet', state.magnet);
-    log(state.magnet ? 'Campo magnético estable. Objeto metálico detectado.' : 'Electroimán desactivado. Carga liberada.');
-    
-    animateChartsOnPower();
+      if(!state.power){
+          Sound.alarm();
+          log('Active el sistema para usar el electroimán.');
+          return;
+      }
+
+      state.magnet = !state.magnet;
+
+      document.getElementById('magnet-btn')
+          .classList.toggle('active', state.magnet);
+
+      setDot('dot-magnet', state.magnet);
+
+      if(state.magnet){
+          Sound.magnet();      // Transición sonora inicial de encendido
+          Sound.startHum();    // <--- ACTIVA el zumbido continuo del transformador de 60Hz
+      }else{
+          Sound.stopHum();     // <--- APAGA el zumbido continuo del transformador
+      }
+
+      sendIframeCommand('setMagnet', state.magnet);
+
+      log(
+          state.magnet
+          ? 'Campo magnético estable. Objeto metálico detectado.'
+          : 'Electroimán desactivado. Carga liberada.'
+      );
+
+      animateChartsOnPower();
   }
 
   function toggleExploded(){
