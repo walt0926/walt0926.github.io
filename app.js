@@ -498,10 +498,76 @@ function createHighTechHotspot(parentGroup, localPos, id, title, desc, colorHex)
     clickTargets.push(collMesh);
 }
 
-createHighTechHotspot(localMagnetFieldsGroup, new THREE.Vector3(0, 0.6, 0), 'magneto', 'Ley de Faraday-Lenz', '<b>La Ley de Faraday-Lenz</b> establece:<br>$$\\mathcal{E} = -\\frac{d\\Phi_B}{dt}$$<br>Al suministrar corriente variable a la bobina, se genera flujo variable induciendo corriente en el metal.', 0x9d4edd);
-createHighTechHotspot(motorRotGroup, new THREE.Vector3(0, 0.45, 0), 'motorGiro', 'Fuerza de Lorentz (Giro)', '<b>La Fuerza de Lorentz</b> describe la acción del campo magnético sobre la corriente:<br>$$\\mathbf{F} = I(\\mathbf{L} \\times \\mathbf{B})$$', 0x00f2fe);
-createHighTechHotspot(motorLiftGroup, new THREE.Vector3(0, 0.45, 0), 'motorElevacion', 'Trabajo, Torque y Tensión', '<b>Equilibrio de Torque:</b><br>$$\\boldsymbol{\\tau} = \\mathbf{r} \\times \\mathbf{F}$$', 0xd49a17);
-createHighTechHotspot(currentGroup, new THREE.Vector3(-1.4, 3.0, -0.75), 'cableConexion', 'Ley de Ampère-Maxwell', '<b>Ley de Ampère:</b><br>$$\\oint \\mathbf{B} \\cdot d\\mathbf{l} = \\mu_0 I$$<br>La corriente fluye por el cable generando un campo magnético de inducción concéntrico.', 0x10b981);
+createHighTechHotspot(localMagnetFieldsGroup, new THREE.Vector3(0, 0.6, 0), 'magneto', 'Ley de Faraday-Lenz', `
+    <span class="ic-eyebrow">Electromagnetismo · Inducción</span>
+    <div class="ic-formula">$$\\mathcal{E} = -\\frac{d\\Phi_B}{dt}$$</div>
+    <ul class="ic-vars">
+        <li><b>ε</b> Fuerza electromotriz inducida (V)</li>
+        <li><b>Φ_B</b> Flujo magnético a través de la bobina (Wb)</li>
+        <li><b>dt</b> Variación de tiempo (s)</li>
+    </ul>
+    <p class="ic-desc"><strong>Este es el núcleo del electroimán.</strong> Al suministrar corriente variable a la bobina, se genera un flujo magnético variable que induce corriente en el metal cercano.</p>
+    <p class="ic-desc">El signo negativo (Ley de Lenz) indica que la corriente inducida siempre se opone al cambio que la produjo, estabilizando el campo mientras el sistema está encendido.</p>
+`, 0x9d4edd);
+
+createHighTechHotspot(motorRotGroup, new THREE.Vector3(0, 0.45, 0), 'motorGiro', 'Fuerza de Lorentz (Giro)', `
+    <span class="ic-eyebrow">Electromagnetismo · Fuerza motriz</span>
+    <div class="ic-formula">$$\\mathbf{F} = I(\\mathbf{L} \\times \\mathbf{B})$$</div>
+    <ul class="ic-vars">
+        <li><b>F</b> Fuerza mecánica resultante (N)</li>
+        <li><b>I</b> Corriente en el devanado del motor (A)</li>
+        <li><b>L</b> Longitud del conductor dentro del campo (m)</li>
+        <li><b>B</b> Campo magnético del motor (T)</li>
+    </ul>
+    <p class="ic-desc">Este motor gira la torre completa de la grúa. El campo magnético interno empuja el conductor con corriente, generando el torque que produce el giro izquierdo/derecho.</p>
+`, 0x00f2fe);
+
+createHighTechHotspot(motorLiftGroup, new THREE.Vector3(0, 0.45, 0), 'motorElevacion', 'Trabajo, Torque y Tensión', `
+    <span class="ic-eyebrow">Mecánica · Equilibrio de torque</span>
+    <div class="ic-formula">$$\\boldsymbol{\\tau} = \\mathbf{r} \\times \\mathbf{F}$$</div>
+    <ul class="ic-vars">
+        <li><b>τ</b> Torque aplicado al tambor de izado (N·m)</li>
+        <li><b>r</b> Radio del tambor (m)</li>
+        <li><b>F</b> Tensión del cable de elevación (N)</li>
+    </ul>
+    <p class="ic-desc">Este motor enrolla el cable que sostiene el electroimán. Su torque debe superar el peso de la carga (mg) para poder elevarla con seguridad.</p>
+`, 0xd49a17);
+
+createHighTechHotspot(currentGroup, new THREE.Vector3(-1.4, 3.0, -0.75), 'cableConexion', 'Ley de Ampère-Maxwell', `
+    <span class="ic-eyebrow">Electromagnetismo · Origen del campo</span>
+    <div class="ic-formula">$$\\oint \\mathbf{B} \\cdot d\\mathbf{l} = \\mu_0 I$$</div>
+    <ul class="ic-vars">
+        <li><b>B</b> Campo magnético inducido (T)</li>
+        <li><b>dl</b> Elemento diferencial de la trayectoria cerrada</li>
+        <li><b>μ₀</b> Permeabilidad magnética del vacío</li>
+        <li><b>I</b> Corriente que circula por el cable (A)</li>
+    </ul>
+    <p class="ic-desc">Toda corriente eléctrica genera un campo magnético a su alrededor. Este cable alimenta al electroimán, y las líneas de campo concéntricas que produce son la base de todo el sistema.</p>
+`, 0x10b981);
+
+createHighTechHotspot(cargoGroup, new THREE.Vector3(0, 0.5, 0), 'cargaMetalica', 'Ferromagnetismo y Saturación', `
+    <span class="ic-eyebrow">Ciencia de materiales · Magnetización</span>
+    <div class="ic-formula">$$\\mathbf{B} = \\mu_0(\\mathbf{H} + \\mathbf{M})$$</div>
+    <ul class="ic-vars">
+        <li><b>B</b> Densidad de flujo dentro del material (T)</li>
+        <li><b>H</b> Campo magnético externo aplicado (A/m)</li>
+        <li><b>M</b> Magnetización inducida en el material (A/m)</li>
+    </ul>
+    <p class="ic-desc"><strong>Solo los materiales ferromagnéticos</strong> —como el hierro, el níquel o el acero de esta carga— responden con fuerza al electroimán: sus dominios magnéticos se alinean con el campo externo.</p>
+    <p class="ic-desc">Al cortar la corriente, el material pierde casi toda su magnetización, liberando la carga. Un pequeño remanente (retentividad) puede dejarla ligeramente magnetizada.</p>
+`, 0xff3b4e);
+
+createHighTechHotspot(mechanicalGroup, new THREE.Vector3(0, towerHeight + 0.15, 0.5), 'aislante', 'Aislamiento y Circuito Magnético', `
+    <span class="ic-eyebrow">Ingeniería · Reluctancia magnética</span>
+    <div class="ic-formula">$$\\mathcal{R} = \\frac{l}{\\mu_0 \\mu_r A}$$</div>
+    <ul class="ic-vars">
+        <li><b>ℛ</b> Reluctancia del circuito magnético (A·vuelta/Wb)</li>
+        <li><b>l</b> Longitud del trayecto del flujo (m)</li>
+        <li><b>μᵣ</b> Permeabilidad relativa del material</li>
+        <li><b>A</b> Área de la sección transversal (m²)</li>
+    </ul>
+    <p class="ic-desc">Esta capa de madera contrachapada aísla eléctricamente la torre metálica del electroimán, evitando cortocircuitos, mientras ofrece alta reluctancia: no interfiere con el circuito magnético del núcleo.</p>
+`, 0xb98a52);
 
 // --- GESTIÓN DE INTERACCIÓN ---
 const raycaster = new THREE.Raycaster();

@@ -1,5 +1,5 @@
 /* =========================================================================
-   ELECTRO-GRÚA // EMIS CONTROL INTERFACE
+   ELECTRO-GRÚA // INTERFAZ DE CONTROL INDUSTRIAL
    ========================================================================= */
 
 /* -------------------------------------------------------------------------
@@ -223,7 +223,7 @@ const Sound = (() => {
 ------------------------------------------------------------------------- */
 (function boot(){
   const lines = [
-    '> INICIALIZANDO NÚCLEO EMIS...',
+    '> INICIALIZANDO NÚCLEO DE CONTROL...',
     '> CARGANDO DIAGNÓSTICO DE MOTORES...',
     '> VERIFICANDO INTEGRIDAD ESTRUCTURAL...',
     '> CALIBRANDO ELECTROIMÁN PRINCIPAL...',
@@ -248,11 +248,25 @@ const Sound = (() => {
   const bootBtn = document.getElementById('boot-btn');
   if(bootBtn){
     bootBtn.addEventListener('click', ()=>{
-      Sound.power_on();
-      document.getElementById('hero').classList.add('fade-out');
-      gsap.to('#app',{opacity:1,duration:1,delay:.3});
-      setTimeout(()=>{ document.getElementById('hero').style.display='none'; App.init(); }, 500);
+      Sound.click();
+      const target = document.getElementById('info-inicio');
+      if(target) target.scrollIntoView({behavior:'smooth'});
     });
+  }
+
+  // Arranque del simulador: se activa desde el panel de bloqueo al final de la página
+  const simStartBtn = document.getElementById('sim-start-btn');
+  if(simStartBtn){
+    simStartBtn.addEventListener('click', ()=>{
+      Sound.power_on();
+      const overlay = document.getElementById('sim-lock-overlay');
+      const shell = document.getElementById('app');
+      if(shell) shell.classList.remove('locked');
+      if(overlay){
+        gsap.to(overlay,{opacity:0,duration:.5,onComplete:()=>{ overlay.style.display='none'; }});
+      }
+      App.init();
+    }, { once:true });
   }
 })();
 
@@ -305,6 +319,12 @@ const App = (() => {
     btn.textContent = state.power ? 'APAGAR' : 'ENCENDER';
     btn.classList.toggle('off', !state.power);
     setDot('dot-power', state.power);
+
+    const fsPower = document.getElementById('fs-power-btn');
+    if(fsPower){
+      fsPower.textContent = state.power ? 'APAGAR' : 'ENCENDER';
+      fsPower.classList.toggle('on', state.power);
+    }
     
     sendIframeCommand('setPower', state.power);
 
@@ -319,7 +339,7 @@ const App = (() => {
       state.motors.giro=state.motors.brazo=state.motors.elevacion=false;
       if(state.magnet){ 
         state.magnet=false; 
-        document.getElementById('magnet-btn').classList.remove('active'); 
+        syncButtons(['magnet-btn','fs-magnet-btn'], 'active', false);
         log('Electroimán desactivado.'); 
       }
       setDot('dot-motors',false); setDot('dot-magnet',false);
@@ -369,8 +389,7 @@ const App = (() => {
 
       state.magnet = !state.magnet;
 
-      document.getElementById('magnet-btn')
-          .classList.toggle('active', state.magnet);
+      syncButtons(['magnet-btn','fs-magnet-btn'], 'active', state.magnet);
 
       setDot('dot-magnet', state.magnet);
 
@@ -399,7 +418,7 @@ const App = (() => {
       return; 
     }
     state.exploded = !state.exploded;
-    document.getElementById('exploded-btn').classList.toggle('active', state.exploded);
+    syncButtons(['exploded-btn','fs-exploded-btn'], 'active', state.exploded);
 
     sendIframeCommand('setExploded', state.exploded);
     log(state.exploded ? 'Desensamblando piezas estructurales: Vista explosionada activada.' : 'Ensamblando componentes: Vista normal restablecida.');
@@ -444,7 +463,7 @@ const App = (() => {
   }
 
   function bindMovementButtons(){
-    document.querySelectorAll('.ctrl-btn').forEach(btn=>{
+    document.querySelectorAll('.ctrl-btn[data-act], .fs-ctrl-btn[data-act]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         const act = btn.dataset.act;
         if(!act) return;
@@ -457,6 +476,23 @@ const App = (() => {
         if(act==='retract'){ motorPulse('brazo','Motor del brazo', -1); }
       });
     });
+  }
+
+  /* Sincroniza una clase (active/on) entre el botón normal y su gemelo de pantalla completa */
+  function syncButtons(ids, cls, on){
+    ids.forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.classList.toggle(cls, on);
+    });
+  }
+
+  function bindFullscreenExtras(){
+    const fsMagnet = document.getElementById('fs-magnet-btn');
+    const fsExploded = document.getElementById('fs-exploded-btn');
+    const fsPower = document.getElementById('fs-power-btn');
+    if(fsMagnet) fsMagnet.addEventListener('click', ()=>{ Sound.click(); toggleMagnet(); });
+    if(fsExploded) fsExploded.addEventListener('click', ()=>{ Sound.click(); toggleExploded(); });
+    if(fsPower) fsPower.addEventListener('click', ()=>{ Sound.click(); togglePower(); });
   }
 
   function initFullscreen() {
@@ -575,13 +611,14 @@ const App = (() => {
   function init(){
     renderMotorCards();
     bindMovementButtons();
+    bindFullscreenExtras();
     initCharts();
     initFullscreen();
     document.getElementById('power-toggle').addEventListener('click', togglePower);
     document.getElementById('magnet-btn').addEventListener('click', toggleMagnet);
     document.getElementById('exploded-btn').addEventListener('click', toggleExploded);
     
-    log('Sistema EMIS operativo. Cargando lienzo de simulación física...');
+    log('Sistema operativo. Cargando lienzo de simulación física...');
     
     // Loop de Telemetría Dinámica en Tiempo Real
     setInterval(()=>{ 
