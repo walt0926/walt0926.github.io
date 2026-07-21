@@ -8,6 +8,7 @@
 const Sound = (() => {
 
     let ctx = null;
+    let muted = false;
 
     let humOsc = null;
     let humGain = null;
@@ -29,6 +30,7 @@ const Sound = (() => {
         sweep = null,
         delay = 0
     }) {
+        if (muted) return;
 
         const ac = ensure();
         const t0 = ac.currentTime + delay;
@@ -56,8 +58,13 @@ const Sound = (() => {
     // ZUMBIDO CONTINUO DEL TRANSFORMADOR
     //==================================================
 
-    function startHum() {
+    //==================================================
+    // ZUMBIDO CONTINUO DEL TRANSFORMADOR
+    //==================================================
 
+    let humShouldPlay = false; // true si el sistema requiere el zumbido, independientemente del mute
+
+    function startHumNodes() {
         const ac = ensure();
 
         if (humOsc) return;
@@ -89,7 +96,13 @@ const Sound = (() => {
         humLFO.start();
     }
 
-    function stopHum() {
+    function startHum() {
+        humShouldPlay = true;
+        if (muted) return; // se recuerda para cuando se desmutee, pero no suena ahora
+        startHumNodes();
+    }
+
+    function stopHumNodes() {
 
         if (!humOsc) return;
 
@@ -116,6 +129,21 @@ const Sound = (() => {
             humLFOGain = null;
 
         }, 130);
+    }
+
+    function stopHum() {
+        humShouldPlay = false;
+        stopHumNodes();
+    }
+
+    function setMuted(value) {
+        muted = value;
+        if (muted) {
+            stopHumNodes(); // silencia el zumbido activo sin olvidar que debía sonar
+        } else if (humShouldPlay) {
+            startHumNodes(); // reanuda el zumbido si el sistema lo requería
+        }
+        return muted;
     }
 
     return {
@@ -148,7 +176,14 @@ const Sound = (() => {
         },
 
         startHum,
-        stopHum
+        stopHum,
+
+        toggleMute() {
+            return setMuted(!muted);
+        },
+        isMuted() {
+            return muted;
+        }
 
     };
 
@@ -285,6 +320,79 @@ const App = (() => {
   };
 
   let charts = {}; // Contenedor para referencias de Chart.js
+
+  /* ---------------------------------------------------------------------
+     MODELO FÍSICO REAL
+     Basado en los datos reales aportados por el usuario:
+       - Bobina primaria del transformador de horno microondas (MOT): 600 vueltas
+       - Electroimán alimentado con corriente alterna de 120V / 60Hz
+       - Motores de corriente directa de 12V (batería de auto)
+
+     La geometría del núcleo, la resistencia real del devanado y las
+     características exactas de los motores NO fueron proporcionadas,
+     así que se usan valores de referencia típicos para un MOT/motor DC
+     pequeño. Esos quedan marcados como "ASUMIDO" — ajústalos si mides
+     tus componentes reales (resistencia con multímetro, dimensiones del
+     núcleo, corriente de arranque del motor, etc.) para mayor precisión.
+  --------------------------------------------------------------------- */
+  const PHYS = {
+    MU0: 4 * Math.PI * 1e-7,   // permeabilidad del vacío (T·m/A)
+
+    // --- Electroimán (DATO REAL: 600 vueltas, 120V AC) ---
+    AC_V: 120,                 // V rms — dato real
+    AC_F: 60,                  // Hz — red eléctrica estándar
+    N_COIL: 600,                // vueltas — dato real
+    CORE_LEN: 0.19,             // m — ASUMIDO: long. media del núcleo (típico MOT)
+    CORE_AREA: 0.0011,          // m² — ASUMIDO: sección del núcleo (~11 cm², típico MOT)
+    MU_R: 1500,                 // ASUMIDO: permeabilidad relativa del acero al silicio
+    B_SAT: 1.6,                 // T — ASUMIDO: inducción de saturación típica del núcleo
+    COIL_R: 3.2,                 // Ω — ASUMIDO: resistencia del devanado de 600 vueltas
+
+    // --- Motores (DATO REAL: 12V DC, batería de auto) ---
+    DC_V: 12,                   // V — dato real
+    MOTOR_R: 0.8,                // Ω — ASUMIDO: resistencia de armadura
+    MOTOR_NO_LOAD_RPM: 3000,     // RPM — ASUMIDO: velocidad libre del motor (en el eje)
+    GEAR_RATIO: 30                // ASUMIDO: reducción motor → mecanismo de la grúa
+  };
+
+  // Electroimán: circuito RL real alimentado por 120V/60Hz con N=600 vueltas
+  function computeElectromagnet() {
+    const { MU0, AC_V, AC_F, N_COIL, CORE_LEN, CORE_AREA, MU_R, B_SAT, COIL_R } = PHYS;
+
+    const L = MU0 * MU_R * N_COIL * N_COIL * CORE_AREA / CORE_LEN; // H — Ley de Hopkinson
+    const omega = 2 * Math.PI * AC_F;
+    const XL = omega * L;                                    // Ω — reactancia inductiva
+    const Z = Math.sqrt(COIL_R * COIL_R + XL * XL);          // Ω — impedancia total
+    const I_rms = AC_V / Z;                                   // A — corriente real (Ohm en AC)
+    const I_peak = I_rms * Math.SQRT2;
+
+    let B = MU0 * MU_R * N_COIL * I_peak / CORE_LEN;         // T — Ley de Ampère (núcleo)
+    const saturated = B > B_SAT;
+    if (saturated) B = B_SAT;
+
+    const F = (B * B * CORE_AREA) / (2 * MU0);               // N — fuerza (tensor de Maxwell)
+    const P = I_rms * I_rms * COIL_R;                         // W — calor Joule real (I²R)
+
+    return { L, XL, Z, I_rms, I_peak, B, saturated, F, P };
+  }
+
+  // Motores DC 12V: modelo de fuerza contraelectromotriz (Ley de Faraday aplicada al motor)
+  function computeMotor(active) {
+    const { DC_V, MOTOR_R, MOTOR_NO_LOAD_RPM, GEAR_RATIO } = PHYS;
+    if (!active) return { rpm: 0, current: 0, voltage: 0, power: 0, backEmf: 0 };
+
+    const Kv = MOTOR_NO_LOAD_RPM / DC_V;  // RPM por voltio
+    const Ke = 1 / Kv;                     // V por RPM (cte. de fuerza contraelectromotriz)
+
+    // Bajo carga típica de operación (~70% de la velocidad libre)
+    const outputRpm = (MOTOR_NO_LOAD_RPM / GEAR_RATIO) * 0.7;
+    const motorRpm = outputRpm * GEAR_RATIO;
+    const backEmf = Ke * motorRpm;                    // V — Ley de Faraday (fcem)
+    const current = Math.max(0, (DC_V - backEmf) / MOTOR_R); // A — Ley de Ohm con fcem
+    const power = DC_V * current;                      // W
+
+    return { rpm: Math.round(outputRpm), current, voltage: DC_V, power, backEmf };
+  }
 
   function sendIframeCommand(action, value = null) {
     const iframe = document.getElementById('simulation-iframe');
@@ -435,12 +543,28 @@ const App = (() => {
     const host = document.getElementById('motor-cards');
     if(!host) return;
     host.innerHTML='';
+    const em = computeElectromagnet(); // recalcula el circuito real del electroimán (120V/60Hz, N=600)
+
     motorDefs.forEach(m=>{
       const active = m.id==='electroiman' ? state.magnet : state.motors[m.id];
-      const rpm = active ? Math.round(1200+Math.random()*600) : 0;
-      const amp = active ? (2.4+Math.random()*1.1).toFixed(1) : (state.power?0.1:0).toFixed(1);
-      const volt = state.power ? (state.magnet||active? 22.0+Math.random()*.6 : 22.0).toFixed(1) : 0;
-      const temp = active ? (38+Math.random()*9).toFixed(0) : (state.power?28:20);
+      let rpm, amp, volt, temp;
+
+      if (m.id === 'electroiman') {
+        // El electroimán no gira: no tiene RPM. Corriente/voltaje reales del circuito AC.
+        rpm = 0;
+        const iReal = state.power ? (state.magnet ? em.I_rms : em.I_rms * 0.02) : 0; // corriente magnetizante residual sin excitar
+        amp = iReal.toFixed(2);
+        volt = state.power ? PHYS.AC_V.toFixed(0) : 0;
+        // Temperatura: base ambiente + aporte de calor Joule real (I²R)
+        temp = state.power ? (24 + (state.magnet ? em.P * 3 : 0.3)).toFixed(0) : 20;
+      } else {
+        const mo = computeMotor(active);
+        rpm = mo.rpm;
+        amp = active ? mo.current.toFixed(1) : (state.power ? 0.1 : 0).toFixed(1);
+        volt = state.power ? PHYS.DC_V.toFixed(1) : 0;
+        temp = active ? (25 + mo.power * 0.55).toFixed(0) : (state.power ? 24 : 20);
+      }
+
       const el = document.createElement('div');
       el.className='motor-card';
       el.innerHTML = `
@@ -495,6 +619,17 @@ const App = (() => {
     if(fsPower) fsPower.addEventListener('click', ()=>{ Sound.click(); togglePower(); });
   }
 
+  function bindMuteButton(){
+    const btn = document.getElementById('btn-mute');
+    if(!btn) return;
+    btn.addEventListener('click', ()=>{
+      const isMuted = Sound.toggleMute();
+      btn.classList.toggle('muted', isMuted);
+      btn.title = isMuted ? 'Activar Sonido' : 'Silenciar Sonido';
+      if(!isMuted) Sound.click(); // pequeño feedback audible al reactivar el sonido
+    });
+  }
+
   function initFullscreen() {
     const btn = document.getElementById('btn-fullscreen');
     const container = document.getElementById('iframe-viewport-panel');
@@ -531,9 +666,9 @@ const App = (() => {
     if(ampereEl) {
       charts.ampere = new Chart(ampereEl, {
         type:'line',
-        data:{labels, datasets:[{label:'B (µT)', data:[0,0,0,0,0,0,0],
+        data:{labels, datasets:[{label:'B (mT)', data:[0,0,0,0,0,0,0],
           borderColor:'#00e6f6', backgroundColor:'rgba(0,230,246,.1)', tension:.4, fill:true}]},
-        options: baseOpts('µT')
+        options: baseOpts('mT')
       });
     }
 
@@ -573,30 +708,44 @@ const App = (() => {
 
   function animateChartsOnPower() {
     if (!state.power) return;
-    
-    // El magnetismo aumenta exponencialmente si el electroimán está activo
-    const bFact = state.magnet ? 450 : 20;
-    const fFact = state.magnet ? 150 : 0;
-    
-    // Los motores funcionando alteran el Efecto Joule y la FEM Inducida de Faraday
+
+    const em = computeElectromagnet(); // circuito real: 120V/60Hz, N=600 vueltas
     const motorActive = state.motors.giro || state.motors.brazo || state.motors.elevacion;
-    const jFact = motorActive ? 120 : (state.power ? 15 : 0);
-    const femFact = motorActive ? 45 : 0;
+
+    // 1. LEY DE AMPÈRE: campo B real del núcleo (T → mT). Sin excitar, solo magnetismo residual.
+    const B_mT = state.magnet ? em.B * 1000 : em.B * 1000 * 0.05;
+
+    // 2. FUERZA DE MAXWELL: F = B²·A / (2·µ0), real, solo existe si el imán está activo
+    const F_N = state.magnet ? em.F : 0;
+
+    // 3. EFECTO JOULE: potencia real disipada = I²R del electroimán + V·I de los motores activos
+    let motorPowerTotal = 0;
+    ['giro', 'brazo', 'elevacion'].forEach(id => {
+      if (state.motors[id]) motorPowerTotal += computeMotor(true).power;
+    });
+    const P_W = (state.magnet ? em.P : 0) + motorPowerTotal;
+
+    // 4. LEY DE FARADAY: fcem real inducida en el motor en marcha (Ke · RPM)
+    const motorSample = computeMotor(motorActive);
+    const FEM_V = motorSample.backEmf;
+
+    // Ruido de sensor (variación de instrumento real), NO aleatoriedad del valor físico en sí
+    const withNoise = (base, pct) => +(base * (1 + (Math.random() - 0.5) * pct)).toFixed(2);
 
     if (charts.ampere) {
-      charts.ampere.data.datasets[0].data = Array.from({length:7}, () => +((bFact * 0.7) + Math.random()*150).toFixed(1));
+      charts.ampere.data.datasets[0].data = Array.from({length:7}, () => withNoise(B_mT, 0.05));
       charts.ampere.update();
     }
     if (charts.newton) {
-      charts.newton.data.datasets[0].data = Array.from({length:7}, () => +((fFact * 0.8) + Math.random()*40).toFixed(1));
+      charts.newton.data.datasets[0].data = Array.from({length:7}, () => withNoise(F_N, 0.06));
       charts.newton.update();
     }
     if (charts.joule) {
-      charts.joule.data.datasets[0].data = Array.from({length:7}, () => +(jFact + Math.random()*25).toFixed(1));
+      charts.joule.data.datasets[0].data = Array.from({length:7}, () => withNoise(P_W, 0.08));
       charts.joule.update();
     }
     if (charts.faraday) {
-      charts.faraday.data.datasets[0].data = Array.from({length:7}, () => +(femFact + Math.random()*15).toFixed(1));
+      charts.faraday.data.datasets[0].data = Array.from({length:7}, () => withNoise(FEM_V, 0.1));
       charts.faraday.update();
     }
   }
@@ -612,6 +761,7 @@ const App = (() => {
     renderMotorCards();
     bindMovementButtons();
     bindFullscreenExtras();
+    bindMuteButton();
     initCharts();
     initFullscreen();
     document.getElementById('power-toggle').addEventListener('click', togglePower);

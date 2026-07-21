@@ -28,6 +28,15 @@ controls.target.copy(defaultControlsTarget);
 const infoCard = document.getElementById('info-card');
 const infoTitle = document.getElementById('info-title');
 const infoText = document.getElementById('info-text');
+const infoClose = document.getElementById('info-close');
+if (infoClose) {
+    infoClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        activeTarget = null;
+        updateSelectionDynamics();
+        updateUI();
+    });
+}
 
 // --- ESTADOS DE CÁMARA ---
 const targetCameraPos = new THREE.Vector3().copy(defaultCameraPos);
@@ -636,13 +645,18 @@ function updateUI() {
         infoCard.style.border = `1.5px solid ${hexColor}`;
         infoCard.style.boxShadow = `-10px 0 35px ${hexColor}33`;
         infoCard.style.display = 'block';
-        setTimeout(() => { infoCard.style.opacity = '1'; }, 10);
+        infoCard.scrollTop = 0;
+        setTimeout(() => {
+            infoCard.style.opacity = '1';
+            infoCard.classList.add('visible');
+        }, 10);
 
         if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
             MathJax.typesetPromise([infoText]).catch(err => console.log("MathJax loading error:", err));
         }
     } else {
         infoCard.style.opacity = '0';
+        infoCard.classList.remove('visible');
         setTimeout(() => { infoCard.style.display = 'none'; }, 300);
     }
 }
