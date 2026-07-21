@@ -635,14 +635,59 @@ const App = (() => {
     const container = document.getElementById('iframe-viewport-panel');
     if (!btn || !container) return;
 
+    // Métodos reales con prefijos (Android viejo / Safari de escritorio)
+    const requestFS = container.requestFullscreen || container.webkitRequestFullscreen ||
+                       container.mozRequestFullScreen || container.msRequestFullscreen;
+    const exitFS = document.exitFullscreen || document.webkitExitFullscreen ||
+                   document.mozCancelFullScreen || document.msExitFullscreen;
+    const getFSElement = () => document.fullscreenElement || document.webkitFullscreenElement ||
+                                 document.mozFullScreenElement || document.msFullscreenElement;
+
+    // iPhone/iPad en Safari (versiones antiguas) no exponen requestFullscreen para
+    // elementos normales (solo para <video>), así que usamos un modo simulado con CSS.
+    const nativeSupported = !!requestFS;
+
+    function enterPseudoFullscreen() {
+      container.classList.add('pseudo-fullscreen');
+      document.body.classList.add('pseudo-fs-lock');
+      btn.classList.add('active');
+    }
+
+    function exitPseudoFullscreen() {
+      container.classList.remove('pseudo-fullscreen');
+      document.body.classList.remove('pseudo-fs-lock');
+      btn.classList.remove('active');
+    }
+
     btn.addEventListener('click', () => {
       Sound.click();
-      if (!document.fullscreenElement) {
-        container.requestFullscreen().catch(err => {
-          log(`Error al intentar entrar en pantalla completa: ${err.message}`);
-        });
+
+      if (nativeSupported) {
+        if (!getFSElement()) {
+          requestFS.call(container).catch(err => {
+            log(`Error al intentar entrar en pantalla completa: ${err.message}. Usando modo alterno.`);
+            enterPseudoFullscreen(); // si falla igual, recurrimos al modo CSS
+          });
+        } else if (exitFS) {
+          exitFS.call(document);
+        }
       } else {
-        document.exitFullscreen();
+        // Sin API nativa (típico en iPhone/Safari): alternamos el modo simulado
+        container.classList.contains('pseudo-fullscreen') ? exitPseudoFullscreen() : enterPseudoFullscreen();
+      }
+    });
+
+    // Mantiene sincronizado el ícono/estado del botón en modo nativo
+    ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+      document.addEventListener(evt, () => {
+        btn.classList.toggle('active', !!getFSElement());
+      });
+    });
+
+    // Permite salir del modo simulado con la tecla Escape (teclados externos en tablet, etc.)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && container.classList.contains('pseudo-fullscreen')) {
+        exitPseudoFullscreen();
       }
     });
   }

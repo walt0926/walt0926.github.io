@@ -254,6 +254,17 @@ section{position:relative;z-index:1;padding:100px 20px;}
   box-shadow:0 0 25px rgba(0,229,255,.25);opacity:0;pointer-events:none;transition:opacity .3s ease, transform .3s ease;}
 .viewport-container:fullscreen .fs-controls-panel,
 .viewport-container:-webkit-full-screen .fs-controls-panel{opacity:1;pointer-events:auto;}
+
+/* Fallback de "pantalla completa simulada" para navegadores sin Fullscreen API real
+   (Safari/iPhone no soporta requestFullscreen en elementos normales) */
+.viewport-container.pseudo-fullscreen{
+  position:fixed !important; inset:0 !important;
+  width:100vw !important; height:100dvh !important;
+  z-index:9999; border-radius:0; border:none;
+  margin:0;
+}
+.viewport-container.pseudo-fullscreen .fs-controls-panel{opacity:1;pointer-events:auto;}
+body.pseudo-fs-lock{overflow:hidden;position:fixed;width:100%;}
 .fs-ctrl-btn{background:rgba(9,18,32,.8);border:1px solid var(--line);color:var(--white);border-radius:4px;padding:7px 10px;
   font-family:var(--ff-mono);font-size:.62rem;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:58px;transition:all .2s;}
 .fs-ctrl-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,229,255,.1);}
